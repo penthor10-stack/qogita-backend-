@@ -13,9 +13,10 @@ res.json({accessToken:d.accessToken,user:d.user});
 });
 app.post("/api/scan",async function(req,res){
 var t=req.headers.authorization.replace("Bearer ","");
-var r=await fetch("https://api.qogita.com/variants/search/?page_size=100",{headers:{Authorization:"Bearer "+t}});
+var r=await fetch("https://api.qogita.com/variants/search/?page_size=100&=hair",{headers:{Authorization:"Bearer "+t}});
 var d=await r.json();
 res.json({products:d.results||[],total:(d.results||[]).length});
 });
 app.listen(process.env.PORT||3001,function(){console.log("ok");});
+
 
