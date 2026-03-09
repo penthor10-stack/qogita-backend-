@@ -1,4 +1,3 @@
-
 var express = require("express");
 var cors = require("cors");
 var fetch = require("node-fetch");
@@ -92,4 +91,4 @@ console.log("SCAN error:"+e.message);
 res.status(500).json({error:e.message});
 }
 });
-app.listen(process.env.PORT||3001,function(
+app.listen(process.env.PORT||3001,function(){console.log("ok");});
