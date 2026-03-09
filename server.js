@@ -17,18 +17,18 @@ res.json({accessToken:d.accessToken,user:d.user});
 });
 app.get("/testk",async function(req,res){
 var k=req.query.k;
-var urls=[
-KEEPA+"/product?key="+k+"&domain=2&code=5000386005168&stats=90",
-KEEPA+"/product?key="+k+"&domain=2&asin=B00004NKIQ&stats=90",
-KEEPA+"/search?key="+k+"&domain=2&type=product&term=wella"
-];
 var results={};
-for(var i=0;i<urls.length;i++){
+var tests=[
+{name:"ean_code",url:KEEPA+"/product?key="+k+"&domain=2&code=5000386005168&stats=90"},
+{name:"ean_history0",url:KEEPA+"/product?key="+k+"&domain=2&history=0&code=5000386005168"},
+{name:"asin_uk",url:KEEPA+"/product?key="+k+"&domain=2&asin=B07DFHTZJ2&stats=90"}
+];
+for(var i=0;i<tests.length;i++){
 try{
-var r=await fetch(urls[i]);
+var r=await fetch(tests[i].url);
 var d=await r.json();
-results["test"+i]={status:r.status,tokens:d.tokensLeft,error:d.error,products:d.products?d.products.length:0};
-}catch(e){results["test"+i]={error:e.message};}
+results[tests[i].name]={status:r.status,tokens:d.tokensLeft,error:d.error,products:d.products?d.products.length:0,sample:d.products&&d.products[0]?{title:d.products[0].title,eans:d.products[0].eanList}:null};
+}catch(e){results[tests[i].name]={error:e.message};}
 }
 res.json(results);
 });
