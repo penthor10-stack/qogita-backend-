@@ -1,251 +1,171 @@
-require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const fetch = require("node-fetch");
+require(“dotenv”).config();
+const express = require(“express”);
+const cors = require(“cors”);
+const fetch = require(“node-fetch”);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const QOGITA = "https://api.qogita.com";
+const QOGITA = “https://api.qogita.com”;
 
-app.use(cors({ origin: "*" }));
+app.use(cors({ origin: “*” }));
 app.use(express.json());
 
 // ── Health check ─────────────────────────────────────────
-app.get("/", (req, res) => {
-  res.json({ status: "ok" });
-});
-
-// ── DEBUG: Test all possible endpoints ────────────────────
-app.post("/api/debug", async (req, res) => {
-  const token = req.headers.authorization?.replace("Bearer ", "");
-  if (!token) {
-    return res.status(401).json({ error: "No token" });
-  }
-
-  console.log("[DEBUG] Testing endpoints with token:", token.substring(0, 20) + "...");
-
-  const endpoints = [
-    "/variants/",
-    "/variants/?page=1&page_size=10",
-    "/v1/variants/",
-    "/catalog/variants/",
-    "/v1/catalog/variants/",
-    "/products/",
-    "/v1/products/",
-    "/offers/",
-    "/v1/offers/",
-  ];
-
-  const results = {};
-
-  for (const ep of endpoints) {
-    try {
-      console.log(`[DEBUG] Testing: ${QOGITA}${ep}`);
-      
-      const r = await fetch(`${QOGITA}${ep}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-        },
-      });
-
-      const text = await r.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = text.substring(0, 300);
-      }
-
-      results[ep] = {
-        status: r.status,
-        ok: r.ok,
-        hasResults: Array.isArray(data?.results),
-        resultsCount: data?.results?.length || 0,
-        keys: typeof data === "object" ? Object.keys(data) : [],
-        sample: data?.results?.[0] || null,
-        raw: typeof data === "string" ? data : null,
-      };
-
-      console.log(`[DEBUG] ${ep} → ${r.status}, results: ${data?.results?.length || 0}`);
-    } catch (e) {
-      results[ep] = { error: e.message };
-      console.log(`[DEBUG] ${ep} → ERROR: ${e.message}`);
-    }
-  }
-
-  res.json({ results });
+app.get(”/”, (req, res) => {
+res.json({ status: “ok”, message: “Qogita Sourcing Backend Running” });
 });
 
 // ── Login to Qogita ───────────────────────────────────────
-app.post("/api/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: "Email and password required" });
-    }
+app.post(”/api/login”, async (req, res) => {
+try {
+const { email, password } = req.body;
+if (!email || !password) return res.status(400).json({ error: “Email and password required” });
 
-    console.log(`[LOGIN] Attempting: ${email}`);
-
-    const r = await fetch(`${QOGITA}/auth/login/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const text = await r.text();
-    console.log(`[LOGIN] Status: ${r.status}`);
-    console.log(`[LOGIN] Response: ${text.substring(0, 500)}`);
-
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      return res.status(500).json({ error: "Invalid JSON response", raw: text.substring(0, 200) });
-    }
-
-    if (!r.ok) {
-      return res.status(r.status).json({ error: data.detail || data.message || "Login failed" });
-    }
-
-    // Try all possible token fields
-    const token = data.access || data.accessToken || data.token || data.access_token;
-
-    console.log(`[LOGIN] Token found: ${token ? "YES" : "NO"}`);
-    console.log(`[LOGIN] Response keys:`, Object.keys(data));
-
-    if (!token) {
-      return res.status(500).json({ 
-        error: "No token in response", 
-        keys: Object.keys(data),
-        data: data 
-      });
-    }
-
-    res.json({
-      accessToken: token,
-      refreshToken: data.refresh || data.refreshToken || "",
-      email: data.user?.email || email,
-      debug: { keys: Object.keys(data) },
-    });
-  } catch (e) {
-    console.error("[LOGIN] Error:", e.message);
-    res.status(500).json({ error: e.message });
-  }
+```
+const r = await fetch(`${QOGITA}/auth/login/`, {
+method: "POST",
+headers: { "Content-Type": "application/json" },
+body: JSON.stringify({ email, password }),
 });
 
-// ── Scan Qogita products ──────────────────────────────────
-app.post("/api/scan", async (req, res) => {
-  try {
-    const token = req.headers.authorization?.replace("Bearer ", "");
-    if (!token) {
-      return res.status(401).json({ error: "No token provided" });
-    }
+const data = await r.json();
+if (!r.ok) return res.status(r.status).json({ error: data.detail || "Login failed" });
 
-    const { maxPages = 5, pageSize = 200 } = req.body;
-    let allProducts = [];
-    let page = 1;
-    let debugInfo = [];
+res.json({
+accessToken: data.accessToken,
+user: {
+firstName: data.user?.firstName || "",
+email: data.user?.email || email,
+activeCartQid: data.user?.activeCartQid || "",
+},
+});
+```
 
-    console.log(`[SCAN] Starting with token: ${token.substring(0, 20)}...`);
-
-    while (page <= maxPages) {
-      const url = `${QOGITA}/variants/?page=${page}&page_size=${pageSize}`;
-      console.log(`[SCAN] Fetching: ${url}`);
-
-      const r = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-        },
-      });
-
-      const text = await r.text();
-      console.log(`[SCAN] Page ${page} status: ${r.status}`);
-      console.log(`[SCAN] Page ${page} response: ${text.substring(0, 300)}`);
-
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        debugInfo.push({ page, error: "Invalid JSON", raw: text.substring(0, 200) });
-        break;
-      }
-
-      if (!r.ok) {
-        debugInfo.push({ page, status: r.status, error: data.detail || data });
-        if (page === 1) {
-          return res.status(r.status).json({ 
-            error: `API error: ${r.status}`, 
-            detail: data.detail || data,
-            debug: debugInfo 
-          });
-        }
-        break;
-      }
-
-      // Try different response structures
-      const results = data.results || data.data || data.variants || data.products || [];
-      
-      debugInfo.push({ 
-        page, 
-        status: r.status, 
-        keys: Object.keys(data),
-        resultsCount: results.length,
-        sampleKeys: results[0] ? Object.keys(results[0]) : [],
-      });
-
-      console.log(`[SCAN] Page ${page}: ${results.length} items, keys: ${Object.keys(data).join(", ")}`);
-
-      if (results.length === 0) break;
-
-      const items = results
-        .map((p) => ({
-          gtin: p.gtin || p.ean || p.upc || p.barcode || "",
-          name: p.name || p.title || p.productName || "",
-          brand: p.brand?.name || p.brandName || p.brand || "",
-          category: p.category?.name || p.categoryName || p.category || "",
-          qogitaCost: parseFloat(p.unit_price || p.unitPrice || p.price || p.lowestPrice || p.best_offer_price || p.cost || 0),
-          inventory: parseInt(p.available_quantity || p.availableQuantity || p.inventory || p.stock || p.qty || 0, 10),
-          moq: parseInt(p.minimum_order_quantity || p.moq || p.minQty || 1, 10),
-          imageUrl: p.image_url || p.imageUrl || p.image || p.thumbnail || "",
-          qid: p.qid || p.id || p.sku || "",
-        }))
-        .filter((p) => p.qogitaCost > 0 && p.gtin && p.gtin.length >= 8);
-
-      console.log(`[SCAN] Page ${page}: ${items.length} valid items after filtering`);
-
-      allProducts.push(...items);
-
-      if (!data.next) break;
-      page++;
-    }
-
-    // Deduplicate
-    const seen = new Set();
-    allProducts = allProducts.filter((p) => {
-      if (seen.has(p.gtin)) return false;
-      seen.add(p.gtin);
-      return true;
-    });
-
-    console.log(`[SCAN] Final: ${allProducts.length} unique products`);
-
-    res.json({
-      products: allProducts,
-      total: allProducts.length,
-      pagesScanned: page,
-      debug: debugInfo,
-    });
-  } catch (e) {
-    console.error("[SCAN] Error:", e.message);
-    res.status(500).json({ error: e.message });
-  }
+} catch (e) {
+res.status(500).json({ error: e.message });
+}
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-  console.log(`   POST /api/login → Login`);
-  console.log(`   POST /api/scan  → Scan products`);
-  console.log(`   POST /api/debug → Test all endpoints`);
+// ── Fetch catalog from Qogita ─────────────────────────────
+app.get(”/api/catalog”, async (req, res) => {
+try {
+const token = req.headers.authorization?.replace(“Bearer “, “”);
+const category = req.query.category || “hair-care”;
+const pageSize = req.query.page_size || 200;
+
+```
+if (!token) return res.status(401).json({ error: "No token provided" });
+
+const r = await fetch(`${QOGITA}/v1/catalog/variants/search/?page_size=${pageSize}&category=${category}`, {
+headers: { "Authorization": `Bearer ${token}` },
 });
+
+const data = await r.json();
+if (!r.ok) return res.status(r.status).json({ error: data.detail || "Catalog fetch failed" });
+
+const products = (data.results || []).map(p => ({
+gtin: p.gtin || p.ean || "",
+name: (p.name || "").substring(0, 80),
+brand: p.brand?.name || p.brand || "",
+category: p.category?.name || category,
+price: parseFloat(p.price || p.lowestPrice || 0),
+inventory: parseInt(p.inventory || 0),
+numOffers: parseInt(p.offersCount || 1),
+})).filter(p => p.price > 0 && p.gtin);
+
+res.json({ products, total: products.length, next: data.next });
+```
+
+} catch (e) {
+res.status(500).json({ error: e.message });
+}
+});
+
+// ── Fetch all categories at once ──────────────────────────
+app.post(”/api/scan”, async (req, res) => {
+try {
+const token = req.headers.authorization?.replace(“Bearer “, “”);
+if (!token) return res.status(401).json({ error: “No token provided” });
+
+```
+const categories = [
+"hair-care", "skin-care", "body-care", "shampoo",
+"conditioner", "hair-styling", "face-care", "hair-colour"
+];
+
+let allProducts = [];
+const results = {};
+
+for (const cat of categories) {
+try {
+const r = await fetch(`${QOGITA}/v1/catalog/variants/?page_size=200&category=${cat}`, {
+headers: { "Authorization": `Bearer ${token}` },
+});
+if (r.ok) {
+const data = await r.json();
+const items = (data.results || []).map(p => ({
+gtin: p.gtin || p.ean || "",
+name: (p.name || "").substring(0, 80),
+brand: p.brand?.name || p.brand || "",
+category: p.category?.name || cat,
+price: parseFloat(p.price || p.lowestPrice || 0),
+inventory: parseInt(p.inventory || 0),
+})).filter(p => p.price > 0 && p.gtin);
+allProducts.push(...items);
+results[cat] = items.length;
+}
+} catch {}
+}
+
+// Deduplicate by GTIN
+const seen = new Set();
+allProducts = allProducts.filter(p => {
+if (seen.has(p.gtin)) return false;
+seen.add(p.gtin); return true;
+});
+
+res.json({ products: allProducts, total: allProducts.length, byCategory: results });
+```
+
+} catch (e) {
+res.status(500).json({ error: e.message });
+}
+});
+
+// ── Keepa price lookup ────────────────────────────────────
+app.post(”/api/keepa”, async (req, res) => {
+try {
+const { gtins, keepaKey } = req.body;
+if (!keepaKey) return res.status(400).json({ error: “No Keepa key provided” });
+if (!gtins || !gtins.length) return res.status(400).json({ error: “No GTINs provided” });
+
+```
+// Keepa API: look up by EAN/GTIN
+const codes = gtins.slice(0, 100).join(",");
+const r = await fetch(
+`https://api.keepa.com/product?key=${keepaKey}&domain=2&code=${codes}&stats=180&history=0`,
+);
+const data = await r.json();
+if (!r.ok || data.error) return res.status(400).json({ error: data.error?.message || "Keepa error" });
+
+// Extract current buy box prices
+const prices = {};
+(data.products || []).forEach(p => {
+if (p.eanList) {
+p.eanList.forEach(ean => {
+// Keepa prices are in cents, divide by 100
+const buyBox = p.stats?.current?.[18]; // index 18 = buy box price
+if (buyBox && buyBox > 0) prices[ean] = +(buyBox / 100).toFixed(2);
+});
+}
+});
+
+res.json({ prices, found: Object.keys(prices).length });
+```
+
+} catch (e) {
+res.status(500).json({ error: e.message });
+}
+});
+
+app.listen(PORT, () => console.log(`✅ Qogita Backend running on port ${PORT}`));
