@@ -22,7 +22,11 @@ var data = await r.json();
 if (!r.ok) {
 return res.status(r.status).json({ error: data.detail || JSON.stringify(data) });
 }
-res.json({ accessToken: data.accessToken, user: data.user });
+res.json({
+accessToken: data.access || data.accessToken,
+user: data.user || null
+});
+
 } catch (e) {
 res.status(500).json({ error: e.message });
 }
@@ -71,5 +75,6 @@ res.status(500).json({ error: e.message });
 app.listen(PORT, function() {
 console.log("Running on port " + PORT);
 });
+
 
 
