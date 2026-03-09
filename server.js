@@ -17,7 +17,8 @@ res.json({accessToken:d.accessToken,user:d.user});
 });
 app.post("/api/scan",async function(req,res){
 try{
-var t=req.headers.authorization.replace("Bearer ","");
+var t=req.headers.authorization.replace("Bearer ","");console.log("token:"+t.substring(0,20));
+
 var cats=["hair"];
 var all=[];
 for(var i=0;i<cats.length;i++){
@@ -32,5 +33,6 @@ res.json({products:all,total:all.length});
 }catch(e){res.status(500).json({error:e.message});}
 });
 app.listen(process.env.PORT||3001,function(){console.log("ok");});
+
 
 
