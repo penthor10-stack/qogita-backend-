@@ -23,4 +23,12 @@ var items=(d.results||[]).map(function(p){return{gtin:p.gtin||"",name:(p.name||"
 res.json({products:items,total:items.length});
 }catch(e){res.status(500).json({error:e.message});}
 });
+app.get("/testk",async function(req,res){
+var k=req.query.k;
+var r=await fetch("https://api.keepa.com/product?key="+k+"&domain=2&asin=B00004NKIQ&stats=90");
+var d=await r.json();
+res.json({status:r.status,tokens:d.tokensLeft,error:d.error,products:d.products?d.products.length:0});
+});
+
 app.listen(process.env.PORT||3001,function(){console.log("ok");});
+
