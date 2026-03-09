@@ -37,7 +37,7 @@ var results = {};
 for (var i = 0; i < cats.length; i++) {
 var cat = cats[i];
 try {
-var r = await fetch(QOGITA + "/v1/catalog/variants/?page_size=200&category=" + cat, {
+var r = await fetch(QOGITA + "/variants/search/?page_size=200&q=" + cat, {
 headers: { "Authorization": "Bearer " + token },
 });
 if (r.ok) {
@@ -71,3 +71,4 @@ res.status(500).json({ error: e.message });
 app.listen(PORT, function() {
 console.log("Running on port " + PORT);
 });
+
