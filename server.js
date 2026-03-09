@@ -45,6 +45,7 @@ brands.forEach(function(b){url=url+"&brand_name="+encodeURIComponent(b);});
 }else{
 url=url+"&category_name="+encodeURIComponent(cat);
 }
+console.log("FETCH:"+url.substring(0,150));
 var r=await fetch(url,{headers:{Authorization:"Bearer "+t}});
 var d=await r.json();
 var items=(d.results||[]).map(function(p){
