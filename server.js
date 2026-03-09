@@ -1,3 +1,4 @@
+
 var express = require("express");
 var cors = require("cors");
 var fetch = require("node-fetch");
@@ -17,9 +18,20 @@ res.json({accessToken:d.accessToken,user:d.user});
 });
 app.get("/testk",async function(req,res){
 var k=req.query.k;
-var r=await fetch(KEEPA+"/product?key="+k+"&domain=2&code=5000386005168&stats=90");
+var urls=[
+KEEPA+"/product?key="+k+"&domain=2&code=5000386005168&stats=90",
+KEEPA+"/product?key="+k+"&domain=2&asin=B00004NKIQ&stats=90",
+KEEPA+"/search?key="+k+"&domain=2&type=product&term=wella"
+];
+var results={};
+for(var i=0;i<urls.length;i++){
+try{
+var r=await fetch(urls[i]);
 var d=await r.json();
-res.json({status:r.status,tokens:d.tokensLeft,error:d.error,products:d.products?d.products.length:0,sample:d.products&&d.products[0]?{asin:d.products[0].asin,eans:d.products[0].eanList,title:d.products[0].title}:null});
+results["test"+i]={status:r.status,tokens:d.tokensLeft,error:d.error,products:d.products?d.products.length:0};
+}catch(e){results["test"+i]={error:e.message};}
+}
+res.json(results);
 });
 app.post("/api/scan",async function(req,res){
 try{
@@ -80,4 +92,4 @@ console.log("SCAN error:"+e.message);
 res.status(500).json({error:e.message});
 }
 });
-app.listen(process.env.PORT||3001,function(){console.log("ok");});
+app.listen(process.env.PORT||3001,function(
