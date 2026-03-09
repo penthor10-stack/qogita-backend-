@@ -18,7 +18,7 @@ res.json({accessToken:d.accessToken,user:d.user});
 app.post("/api/scan",async function(req,res){
 try{
 var t=req.headers.authorization.replace("Bearer ","");
-var cats=["hair-care","skin-care","shampoo","conditioner","body-care"];
+var cats=["hair"];
 var all=[];
 for(var i=0;i<cats.length;i++){
 var r=await fetch("https://api.qogita.com/search/offers/?category_name="+cats[i]+"&stock_availability=in_stock&size=100",{headers:{Authorization:"Bearer "+t}});
@@ -32,3 +32,4 @@ res.json({products:all,total:all.length});
 }catch(e){res.status(500).json({error:e.message});}
 });
 app.listen(process.env.PORT||3001,function(){console.log("ok");});
+
