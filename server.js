@@ -67,12 +67,29 @@ console.log("KEEPA batch "+b+" status:"+kr.status+" tokens:"+kd.tokensLeft+" pro
 if(kd.products){
 kd.products.forEach(function(kp){
 var price=null;
+var bsr=null;
+var monthlySales=null;
 if(kp.stats){
 var bb=kp.stats.buyBoxPrice;
 var cur=kp.stats.current&&kp.stats.current[1];
 price=bb>0?bb/100:cur>0?cur/100:null;
+var bsrVal=kp.stats.current&&kp.stats.current[3];
+if(bsrVal&&bsrVal>0){
+bsr=bsrVal;
+if(bsr<1000)monthlySales=500;
+else if(bsr<5000)monthlySales=200;
+else if(bsr<10000)monthlySales=100;
+else if(bsr<20000)monthlySales=60;
+else if(bsr<50000)monthlySales=30;
+else if(bsr<100000)monthlySales=15;
+else if(bsr<200000)monthlySales=8;
+else if(bsr<500000)monthlySales=3;
+else monthlySales=1;
 }
-(kp.eanList||[]).forEach(function(ean){if(price)priceMap[ean]=price;});
+}
+(kp.eanList||[]).forEach(function(ean){
+if(price)priceMap[ean]={price:price,bsr:bsr,monthlySales:monthlySales};
+});
 });
 }
 if(b<batches.length-1){await new Promise(function(r){setTimeout(r,3000);});}
@@ -80,9 +97,14 @@ if(b<batches.length-1){await new Promise(function(r){setTimeout(r,3000);});}
 }
 var matched=0;
 items=items.map(function(p){
-var ap=priceMap[p.gtin]||null;
-if(ap)matched++;
-return Object.assign({},p,{amazonPrice:ap,hasRealPrice:!!ap});
+var kp=priceMap[p.gtin]||null;
+if(kp)matched++;
+return Object.assign({},p,{
+amazonPrice:kp?kp.price:null,
+bsr:kp?kp.bsr:null,
+monthlySales:kp?kp.monthlySales:null,
+hasRealPrice:!!kp
+});
 });
 console.log("KEEPA matched:"+matched+"/"+items.length);
 }
