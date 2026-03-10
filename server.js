@@ -114,4 +114,34 @@ console.log("SCAN error:"+e.message);
 res.status(500).json({error:e.message});
 }
 });
+// LOOKUP: get product by QID
+app.post("/api/lookup",async function(req,res){
+  const {token,qid}=req.body;
+  if(!token||!qid)return res.json({error:"Missing token or qid"});
+  try{
+    const r=await fetch("https://api.qogita.com/variants/"+qid+"/",{headers:{Authorization:"Bearer "+token}});
+    if(!r.ok)return res.json({error:"Product not found on Qogita"});
+    const d=await r.json();
+    const price=d.minPrice||d.price||null;
+    res.json({name:d.name||d.title||"Unknown",brand:d.brandName||d.brand||"Unknown",gtin:d.gtin||d.ean||qid,price:price?parseFloat(price):0,image:d.imageUrl||null});
+  }catch(e){res.json({error:"Lookup failed: "+e.message});}
+});
+
+// WATCHCHECK: check current prices for watchlist QIDs
+app.post("/api/watchcheck",async function(req,res){
+  const {token,items}=req.body;
+  if(!token||!items||!items.length)return res.json({results:[]});
+  try{
+    const results=[];
+    for(const qid of items){
+      try{
+        const r=await fetch("https://api.qogita.com/variants/"+qid+"/",{headers:{Authorization:"Bearer "+token}});
+        if(r.ok){const d=await r.json();const price=d.minPrice||d.price||null;results.push({qid,price:price?parseFloat(price):0});}
+      }catch(e){console.log("watchcheck error "+qid+":"+e.message);}
+      await new Promise(function(resolve){setTimeout(resolve,300);});
+    }
+    res.json({results});
+  }catch(e){res.json({results:[],error:e.message});}
+});
+
 app.listen(process.env.PORT||3001,function(){console.log("ok");});
